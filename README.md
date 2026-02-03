@@ -1,6 +1,14 @@
 # Expo Credential Manager (Android)
 
-Expo module exposing Android Credential Manager (passkeys + passwords) to JavaScript.
+Expo module that exposes Android Credential Manager to JavaScript for passkeys, passwords, and Sign in with Google. Includes an Expo config plugin, an example app, and API route stubs for a full Expo Router demo.
+
+## Features
+- Passkey registration and sign-in using WebAuthn JSON from your backend.
+- Password credential creation and retrieval.
+- Google Sign-In via Credential Manager, including explicit consent flow.
+- Mixed selector flow (passkey + password + Google) with a single UI.
+- Optional config plugin for default `serverClientId` and `hostedDomainFilter`.
+- Example app with Expo Router API route stubs.
 
 ## Requirements
 - Android 4.4 (API 19) and higher for password and federated sign-in.
@@ -13,6 +21,32 @@ Expo module exposing Android Credential Manager (passkeys + passwords) to JavaSc
 ## Install
 ```
 # package name for this repo is expo-credential-manager
+```
+
+## API Summary
+```ts
+isAvailable(): Promise<boolean>
+createPasskey(requestJson: string): Promise<{ type: 'publicKey'; responseJson: string }>
+createPassword(username: string, password: string): Promise<{ type: 'password' }>
+getCredential(options: {
+  publicKeyRequestJson?: string
+  password?: boolean
+  googleId?: {
+    serverClientId?: string
+    nonce?: string
+    filterByAuthorizedAccounts?: boolean
+    autoSelectEnabled?: boolean
+    linkedServiceId?: string
+    idTokenDepositionScopes?: string[]
+    requestVerifiedPhoneNumber?: boolean
+  }
+}): Promise<Passkey | Password | Google>
+signInWithGoogle(options: {
+  serverClientId?: string
+  nonce?: string
+  hostedDomainFilter?: string
+}): Promise<Google>
+clearCredentialState(): Promise<void>
 ```
 
 ## Expo Config Plugin (Optional)
@@ -74,8 +108,10 @@ if (credential.type === 'publicKey') {
     method: 'POST',
     body: credential.responseJson,
   });
-} else {
+} else if (credential.type === 'password') {
   // credential.id + credential.password
+} else {
+  // credential.idToken for backend verification
 }
 
 // Store a password credential
@@ -97,17 +133,23 @@ await fetch('/api/google/verify', {
 await clearCredentialState();
 ```
 
-## Notes
+## Google Sign-In Options
+- `filterByAuthorizedAccounts`: show only accounts that already granted consent.
+- `autoSelectEnabled`: auto-select when there is a single available credential.
+- `nonce`: include a nonce in the ID token for backend verification.
+- `hostedDomainFilter`: limit to a Google Workspace domain (Sign in with Google only).
+- `linkedServiceId` + `idTokenDepositionScopes`: associate linked accounts.
+- `requestVerifiedPhoneNumber`: return `phoneNumber` when available.
+
+## Notes and Limitations
 - Do not set `origin` in request JSON for native apps. Use Digital Asset Links instead.
 - Passkey UX: keep passkeys as the primary sign-in option and passwords as a fallback.
 - `signInWithGoogle` must be used alone (do not combine with passkey/password requests).
 - Google credentials return `id` (email) and `idToken` for backend verification.
 - Use your server (web) OAuth client ID for `serverClientId` (not the Android client ID).
 - `requestVerifiedPhoneNumber` requires `filterByAuthorizedAccounts=false`.
-- `hostedDomainFilter` (Sign in with Google) limits results to a Google Workspace domain.
 - When using the config plugin, you can omit `serverClientId` and `hostedDomainFilter` in JS.
-- `requestVerifiedPhoneNumber` returns `phoneNumber` when available.
-- `linkedServiceId` + `idTokenDepositionScopes` let you associate linked accounts during Google sign-in.
 
 ## Example App
-See `example/` for a minimal Expo app using Google Sign-In and mixed credential retrieval.
+See `example/` for a minimal Expo app using Google Sign-In, mixed credential retrieval,
+and Expo Router API route stubs under `example/app/api`.
