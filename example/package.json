@@ -5,14 +5,22 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy"
   },
   "dependencies": {
+    "@simplewebauthn/server": "^10.0.0",
     "expo": "*",
     "expo-constants": "*",
     "expo-router": "*",
+    "google-auth-library": "^9.0.0",
+    "jose": "^5.3.0",
     "react": "18.2.0",
     "react-native": "*",
     "expo-credential-manager": "file:.."
+  },
+  "devDependencies": {
+    "convex": "^1.15.0"
   }
 }

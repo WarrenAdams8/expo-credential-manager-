@@ -1,6 +1,6 @@
 # Expo Credential Manager (Android)
 
-Expo module that exposes Android Credential Manager to JavaScript for passkeys, passwords, and Sign in with Google. Includes an Expo config plugin, an example app, and API route stubs for a full Expo Router demo.
+Expo module that exposes Android Credential Manager to JavaScript for passkeys, passwords, and Sign in with Google. Includes an Expo config plugin, an example app, and a Convex backend sketch wired through Expo Router API routes.
 
 ## Features
 - Passkey registration and sign-in using WebAuthn JSON from your backend.
@@ -8,7 +8,7 @@ Expo module that exposes Android Credential Manager to JavaScript for passkeys, 
 - Google Sign-In via Credential Manager, including explicit consent flow.
 - Mixed selector flow (passkey + password + Google) with a single UI.
 - Optional config plugin for default `serverClientId` and `hostedDomainFilter`.
-- Example app with Expo Router API route stubs.
+- Example app with Expo Router API routes that proxy to a Convex backend.
 
 ## Requirements
 - Android 4.4 (API 19) and higher for password and federated sign-in.
@@ -83,11 +83,15 @@ import {
 const available = await isAvailable();
 
 // Passkey registration (Expo API routes)
-const registrationJson = await fetch('/api/webauthn/registration').then((r) => r.text());
+const email = 'user@example.com';
+const registrationJson = await fetch(`/api/webauthn/registration?email=${encodeURIComponent(email)}`).then(
+  (r) => r.text()
+);
 const createResult = await createPasskey(registrationJson);
 await fetch('/api/webauthn/registration/finish', {
   method: 'POST',
-  body: createResult.responseJson,
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify({ email, responseJson: createResult.responseJson }),
 });
 
 // Passkey or password sign-in (Expo API routes)
@@ -134,23 +138,15 @@ await clearCredentialState();
 ```
 
 ## Example Expo API Route: `/api/webauthn/authentication`
-Use this route to fetch WebAuthn authentication options from your backend and return them
-as raw JSON text (the module expects the exact JSON string).
+In the example app, API routes proxy to Convex HTTP actions. This keeps your client code
+on `/api/*` while the backend lives in Convex. Set `CONVEX_HTTP_URL` in `example/.env`.
 
 ```ts
 // example/app/api/webauthn/authentication+api.ts
-export async function GET() {
-  const response = await fetch('https://your-backend.example.com/webauthn/authentication', {
-    headers: { accept: 'application/json' },
-  });
+import { proxyToConvex } from '../_convex';
 
-  if (!response.ok) {
-    const message = await response.text();
-    return new Response(message, { status: response.status });
-  }
-
-  const json = await response.text();
-  return new Response(json, { headers: { 'content-type': 'application/json' } });
+export async function GET(req: Request) {
+  return await proxyToConvex(req, '/api/webauthn/authentication');
 }
 ```
 
@@ -162,7 +158,6 @@ export async function GET() {
 - `linkedServiceId` + `idTokenDepositionScopes`: associate linked accounts.
 - `requestVerifiedPhoneNumber`: return `phoneNumber` when available.
 
-<<<<<<< ours
 ## Where To Get `serverClientId`, `linkedServiceId`, and `hostedDomainFilter`
 ### `serverClientId` (required for Google Sign-In)
 Use the **Web application** OAuth client ID from Google Cloud Console. This is the client
@@ -178,8 +173,23 @@ and issue ID tokens for linked accounts. If you are not implementing linked acco
 Use this to limit Sign in with Google to a **Google Workspace domain**, e.g. `example.com`
 for enterprise-only sign-in. Leave it empty for consumer accounts.
 
-=======
->>>>>>> theirs
+## Convex Backend (Example)
+The example app includes a Convex backend under `example/convex` with:
+- WebAuthn challenge generation + verification (actions).
+- Google ID token verification (action).
+- Custom JWT signing and JWKS endpoint.
+- HTTP actions for `/api/webauthn/*` and `/api/google/verify`.
+
+To run it locally:
+1. In `example/`, run `npm run convex:dev` and follow the prompts.
+2. Set `CONVEX_HTTP_URL` to your deployment URL (see `example/.env.example`).
+3. Start the Expo app (`npm run android`).
+
+Required Convex env variables:
+- `RP_ID`, `ORIGIN`
+- `CONVEX_ISSUER`, `CONVEX_AUDIENCE`
+- `JWT_PRIVATE_KEY_PEM`, `JWT_PUBLIC_JWK`, `JWT_KID`
+- `GOOGLE_SERVER_CLIENT_ID` (optional: `GOOGLE_HOSTED_DOMAIN`)
 ## Notes and Limitations
 - Do not set `origin` in request JSON for native apps. Use Digital Asset Links instead.
 - Passkey UX: keep passkeys as the primary sign-in option and passwords as a fallback.
@@ -191,4 +201,4 @@ for enterprise-only sign-in. Leave it empty for consumer accounts.
 
 ## Example App
 See `example/` for a minimal Expo app using Google Sign-In, mixed credential retrieval,
-and Expo Router API route stubs under `example/app/api`.
+and Expo Router API routes that proxy to Convex HTTP actions under `example/app/api`.

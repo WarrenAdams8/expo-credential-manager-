@@ -1,14 +1,5 @@
-const notImplementedResponse = (message: string) =>
-  new Response(
-    JSON.stringify({ error: 'Not implemented', message }),
-    {
-      status: 501,
-      headers: { 'content-type': 'application/json' },
-    }
-  );
+import { proxyToConvex } from "../_convex";
 
-export async function GET() {
-  return notImplementedResponse(
-    'Return WebAuthn authentication options JSON from your backend.'
-  );
+export async function GET(req: Request) {
+  return await proxyToConvex(req, "/api/webauthn/authentication");
 }

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Button, Platform, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Constants from 'expo-constants';
 import {
   clearCredentialState,
@@ -13,6 +13,8 @@ const SERVER_CLIENT_ID = 'YOUR_SERVER_CLIENT_ID';
 
 export default function App() {
   const [log, setLog] = useState<string[]>([]);
+  const [email, setEmail] = useState('user@example.com');
+  const [convexToken, setConvexToken] = useState<string | null>(null);
   const apiBaseUrl = useMemo(() => {
     if (process.env.EXPO_PUBLIC_API_BASE_URL) {
       return process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -39,12 +41,26 @@ export default function App() {
     return await response.text();
   };
 
-  const postOrThrow = async (path: string, body: string) => {
+  const postJsonOrThrow = async (path: string, body: unknown) => {
+    const response = await fetch(apiUrl(path), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(`API ${response.status}: ${message}`);
+    }
+    return await response.json();
+  };
+
+  const postTextOrThrow = async (path: string, body: string) => {
     const response = await fetch(apiUrl(path), { method: 'POST', body });
     if (!response.ok) {
       const message = await response.text();
       throw new Error(`API ${response.status}: ${message}`);
     }
+    return await response.json();
   };
 
   const checkAvailability = async () => {
@@ -58,6 +74,8 @@ export default function App() {
         serverClientId: SERVER_CLIENT_ID,
         hostedDomainFilter: 'example.com',
       });
+      const result = await postTextOrThrow('/api/google/verify', credential.idToken);
+      setConvexToken(result.convexToken ?? null);
       addLog(`google id=${credential.id}`);
     } catch (error) {
       addLog(`google error=${String(error)}`);
@@ -82,6 +100,7 @@ export default function App() {
   const signOut = async () => {
     try {
       await clearCredentialState();
+      setConvexToken(null);
       addLog('cleared credential state');
     } catch (error) {
       addLog(`clear error=${String(error)}`);
@@ -90,9 +109,19 @@ export default function App() {
 
   const registerPasskey = async () => {
     try {
-      const registrationJson = await fetchTextOrThrow('/api/webauthn/registration');
+      if (!email) {
+        addLog('enter an email before registering');
+        return;
+      }
+      const registrationJson = await fetchTextOrThrow(
+        `/api/webauthn/registration?email=${encodeURIComponent(email)}`
+      );
       const createResult = await createPasskey(registrationJson);
-      await postOrThrow('/api/webauthn/registration/finish', createResult.responseJson);
+      const result = await postJsonOrThrow('/api/webauthn/registration/finish', {
+        email,
+        responseJson: createResult.responseJson,
+      });
+      setConvexToken(result.convexToken ?? null);
       addLog('passkey registered');
     } catch (error) {
       addLog(`passkey register error=${String(error)}`);
@@ -107,7 +136,11 @@ export default function App() {
         addLog(`unexpected credential type=${credential.type}`);
         return;
       }
-      await postOrThrow('/api/webauthn/authentication/finish', credential.responseJson);
+      const result = await postTextOrThrow(
+        '/api/webauthn/authentication/finish',
+        credential.responseJson
+      );
+      setConvexToken(result.convexToken ?? null);
       addLog('passkey sign-in complete');
     } catch (error) {
       addLog(`passkey sign-in error=${String(error)}`);
@@ -127,11 +160,17 @@ export default function App() {
       });
 
       if (credential.type === 'publicKey') {
-        await postOrThrow('/api/webauthn/authentication/finish', credential.responseJson);
+        const result = await postTextOrThrow(
+          '/api/webauthn/authentication/finish',
+          credential.responseJson
+        );
+        setConvexToken(result.convexToken ?? null);
         addLog('mixed flow: passkey sign-in complete');
       } else if (credential.type === 'password') {
         addLog(`mixed flow: password id=${credential.id}`);
       } else {
+        const result = await postTextOrThrow('/api/google/verify', credential.idToken);
+        setConvexToken(result.convexToken ?? null);
         addLog(`mixed flow: google id=${credential.id}`);
       }
     } catch (error) {
@@ -146,6 +185,9 @@ export default function App() {
         Replace SERVER_CLIENT_ID with your web OAuth client ID and run on Android.
       </Text>
       <Text style={styles.subtitle}>API base: {apiBaseUrl}</Text>
+      <Text style={styles.subtitle}>
+        Convex token: {convexToken ? `${convexToken.slice(0, 12)}...` : 'none'}
+      </Text>
 
       <View style={styles.buttonRow}>
         <Button title="Check availability" onPress={checkAvailability} />
@@ -154,6 +196,14 @@ export default function App() {
       <Text style={styles.sectionBody}>
         Uses Expo API routes for WebAuthn registration and authentication.
       </Text>
+      <TextInput
+        style={styles.input}
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder="email@example.com"
+      />
       <View style={styles.buttonRow}>
         <Button title="Register passkey" onPress={registerPasskey} />
       </View>
@@ -212,6 +262,13 @@ const styles = StyleSheet.create({
   },
   sectionBody: {
     color: '#444',
+  },
+  input: {
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   logEntry: {
     fontSize: 12,
