@@ -16,6 +16,7 @@ This is a minimal Expo app that exercises the module on Android and proxies
 - Passkeys require backend WebAuthn endpoints.
 - The example uses Expo API routes under `/api/*` (see `app/api` in Expo Router).
 - The `app/api` routes proxy to Convex HTTP actions under `example/convex/http.ts`.
+- Password register/login routes live at `/api/password/register` and `/api/password/login`.
 
 ## Convex Env
 Set these in your Convex deployment (via `npx convex env set`):

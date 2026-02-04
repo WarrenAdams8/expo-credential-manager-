@@ -178,7 +178,8 @@ The example app includes a Convex backend under `example/convex` with:
 - WebAuthn challenge generation + verification (actions).
 - Google ID token verification (action).
 - Custom JWT signing and JWKS endpoint.
-- HTTP actions for `/api/webauthn/*` and `/api/google/verify`.
+- Email/password registration and login endpoints.
+- HTTP actions for `/api/webauthn/*`, `/api/google/verify`, and `/api/password/*`.
 
 To run it locally:
 1. In `example/`, run `npm run convex:dev` and follow the prompts.

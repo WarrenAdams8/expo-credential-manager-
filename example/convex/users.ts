@@ -1,4 +1,4 @@
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 
 export const upsertByEmail = internalMutation({
@@ -14,6 +14,30 @@ export const upsertByEmail = internalMutation({
     return await ctx.db.insert("users", {
       email: args.email,
       createdAt: Date.now(),
+    });
+  },
+});
+
+export const getByEmail = internalQuery({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_email", (q) => q.eq("email", args.email))
+      .unique();
+  },
+});
+
+export const setPassword = internalMutation({
+  args: {
+    userId: v.id("users"),
+    passwordHash: v.string(),
+    passwordSalt: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      passwordHash: args.passwordHash,
+      passwordSalt: args.passwordSalt,
     });
   },
 });

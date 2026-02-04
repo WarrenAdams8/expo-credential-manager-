@@ -67,6 +67,38 @@ http.route({
 });
 
 http.route({
+  path: "/api/password/register",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const { email, password } = await req.json();
+    if (!email || !password) {
+      return new Response("email and password are required", { status: 400 });
+    }
+    const result = await ctx.runAction(internal.passwordAuth.registerWithPassword, {
+      email,
+      password,
+    });
+    return Response.json(result);
+  }),
+});
+
+http.route({
+  path: "/api/password/login",
+  method: "POST",
+  handler: httpAction(async (ctx, req) => {
+    const { email, password } = await req.json();
+    if (!email || !password) {
+      return new Response("email and password are required", { status: 400 });
+    }
+    const result = await ctx.runAction(internal.passwordAuth.loginWithPassword, {
+      email,
+      password,
+    });
+    return Response.json(result);
+  }),
+});
+
+http.route({
   path: "/.well-known/jwks.json",
   method: "GET",
   handler: httpAction(async () => {

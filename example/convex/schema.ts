@@ -5,6 +5,8 @@ export default defineSchema({
   users: defineTable({
     email: v.optional(v.string()),
     googleSub: v.optional(v.string()),
+    passwordHash: v.optional(v.string()),
+    passwordSalt: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_email", ["email"])

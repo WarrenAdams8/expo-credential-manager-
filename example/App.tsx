@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import {
   clearCredentialState,
   createPasskey,
+  createPassword,
   getCredential,
   isAvailable,
   signInWithGoogle,
@@ -14,6 +15,7 @@ const SERVER_CLIENT_ID = 'YOUR_SERVER_CLIENT_ID';
 export default function App() {
   const [log, setLog] = useState<string[]>([]);
   const [email, setEmail] = useState('user@example.com');
+  const [password, setPassword] = useState('');
   const [convexToken, setConvexToken] = useState<string | null>(null);
   const apiBaseUrl = useMemo(() => {
     if (process.env.EXPO_PUBLIC_API_BASE_URL) {
@@ -91,6 +93,16 @@ export default function App() {
           filterByAuthorizedAccounts: true,
         },
       });
+      if (credential.type === 'password') {
+        const result = await postJsonOrThrow('/api/password/login', {
+          email: credential.id,
+          password: credential.password,
+        });
+        setConvexToken(result.convexToken ?? null);
+      } else if (credential.type === 'google') {
+        const result = await postTextOrThrow('/api/google/verify', credential.idToken);
+        setConvexToken(result.convexToken ?? null);
+      }
       addLog(`credential type=${credential.type}`);
     } catch (error) {
       addLog(`getCredential error=${String(error)}`);
@@ -104,6 +116,35 @@ export default function App() {
       addLog('cleared credential state');
     } catch (error) {
       addLog(`clear error=${String(error)}`);
+    }
+  };
+
+  const registerPassword = async () => {
+    try {
+      if (!email || !password) {
+        addLog('enter email and password to register');
+        return;
+      }
+      const result = await postJsonOrThrow('/api/password/register', { email, password });
+      await createPassword(email, password);
+      setConvexToken(result.convexToken ?? null);
+      addLog('password registered');
+    } catch (error) {
+      addLog(`password register error=${String(error)}`);
+    }
+  };
+
+  const loginPassword = async () => {
+    try {
+      if (!email || !password) {
+        addLog('enter email and password to login');
+        return;
+      }
+      const result = await postJsonOrThrow('/api/password/login', { email, password });
+      setConvexToken(result.convexToken ?? null);
+      addLog('password login complete');
+    } catch (error) {
+      addLog(`password login error=${String(error)}`);
     }
   };
 
@@ -167,6 +208,11 @@ export default function App() {
         setConvexToken(result.convexToken ?? null);
         addLog('mixed flow: passkey sign-in complete');
       } else if (credential.type === 'password') {
+        const result = await postJsonOrThrow('/api/password/login', {
+          email: credential.id,
+          password: credential.password,
+        });
+        setConvexToken(result.convexToken ?? null);
         addLog(`mixed flow: password id=${credential.id}`);
       } else {
         const result = await postTextOrThrow('/api/google/verify', credential.idToken);
@@ -209,6 +255,23 @@ export default function App() {
       </View>
       <View style={styles.buttonRow}>
         <Button title="Sign in with passkey" onPress={signInWithPasskey} />
+      </View>
+      <Text style={styles.sectionTitle}>Email/Password</Text>
+      <Text style={styles.sectionBody}>Register or sign in with a password.</Text>
+      <TextInput
+        style={styles.input}
+        value={password}
+        onChangeText={setPassword}
+        autoCapitalize="none"
+        autoCorrect={false}
+        secureTextEntry
+        placeholder="password"
+      />
+      <View style={styles.buttonRow}>
+        <Button title="Register email + password" onPress={registerPassword} />
+      </View>
+      <View style={styles.buttonRow}>
+        <Button title="Login with password" onPress={loginPassword} />
       </View>
       <View style={styles.buttonRow}>
         <Button title="Sign in with Google" onPress={signInGoogle} />
