@@ -1,15 +1,17 @@
 # Example App
 
 This is a minimal Expo app that exercises the module on Android and proxies
-`/api/*` routes to a Convex backend.
+`/api/*` routes to a Convex backend component.
 
 ## Quick Start
 1. Install dependencies.
 2. Replace `SERVER_CLIENT_ID` in `example/App.tsx`.
 3. Run `npm run convex:dev` in `example/` and follow the prompts to create a Convex project.
-4. Copy `example/.env.example` to `example/.env` and set `CONVEX_HTTP_URL`.
-5. Set `EXPO_PUBLIC_API_BASE_URL` if your API routes are not on the Metro host.
-6. Run `npm run android`.
+4. Set Convex env variables (see below).
+5. Run `npx convex run setupAuth:configure` to store config in the component.
+6. Copy `example/.env.example` to `example/.env` and set `CONVEX_HTTP_URL`.
+7. Set `EXPO_PUBLIC_API_BASE_URL` if your API routes are not on the Metro host.
+8. Run `npm run android`.
 
 ## Notes
 - Use your server (web) OAuth client ID.
@@ -20,7 +22,7 @@ This is a minimal Expo app that exercises the module on Android and proxies
 
 ## Convex Env
 Set these in your Convex deployment (via `npx convex env set`):
-- `RP_ID`, `ORIGIN`
+- `RP_ID`, `ORIGIN`, `RP_NAME` (optional)
 - `CONVEX_ISSUER`, `CONVEX_AUDIENCE`
-- `JWT_PRIVATE_KEY_PEM`, `JWT_PUBLIC_JWK`, `JWT_KID`
+- `JWT_PRIVATE_KEY_PEM`, `JWT_PUBLIC_JWK`, `JWT_KID`, `JWT_TTL_SECONDS` (optional)
 - `GOOGLE_SERVER_CLIENT_ID` (optional: `GOOGLE_HOSTED_DOMAIN`)

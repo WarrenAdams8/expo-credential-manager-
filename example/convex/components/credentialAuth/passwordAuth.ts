@@ -6,20 +6,20 @@ import { internal } from "./_generated/api";
 import { SignJWT, importPKCS8 } from "jose";
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
-const issuer = process.env.CONVEX_ISSUER!;
-const audience = process.env.CONVEX_AUDIENCE!;
-const privateKeyPem = process.env.JWT_PRIVATE_KEY_PEM!;
-const keyId = process.env.JWT_KID!;
+async function loadConfig(ctx: { runQuery: any }) {
+  return await ctx.runQuery(internal.config.getConfig, {});
+}
 
-async function signConvexJwt(sub: string) {
-  const key = await importPKCS8(privateKeyPem, "RS256");
+async function signConvexJwt(config: any, sub: string) {
+  const key = await importPKCS8(config.jwtPrivateKeyPem, "RS256");
   const now = Math.floor(Date.now() / 1000);
+  const ttl = config.tokenTtlSeconds ?? 60 * 60;
   return await new SignJWT({})
-    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: keyId })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: config.jwtKid })
     .setIssuedAt(now)
-    .setExpirationTime(now + 60 * 60)
-    .setIssuer(issuer)
-    .setAudience(audience)
+    .setExpirationTime(now + ttl)
+    .setIssuer(config.issuer)
+    .setAudience(config.audience)
     .setSubject(sub)
     .sign(key);
 }
@@ -31,6 +31,7 @@ function hashPassword(password: string, salt: Buffer) {
 export const registerWithPassword = action({
   args: { email: v.string(), password: v.string() },
   handler: async (ctx, args) => {
+    const config = await loadConfig(ctx);
     const existing = await ctx.runQuery(internal.users.getByEmail, {
       email: args.email,
     });
@@ -39,7 +40,8 @@ export const registerWithPassword = action({
       throw new Error("Email already registered");
     }
 
-    const userId = existing?._id ??
+    const userId =
+      existing?._id ??
       (await ctx.runMutation(internal.users.upsertByEmail, { email: args.email }));
 
     const salt = randomBytes(16);
@@ -51,7 +53,7 @@ export const registerWithPassword = action({
       passwordSalt: salt.toString("base64"),
     });
 
-    const convexToken = await signConvexJwt(userId);
+    const convexToken = await signConvexJwt(config, userId);
     return { convexToken };
   },
 });
@@ -59,6 +61,7 @@ export const registerWithPassword = action({
 export const loginWithPassword = action({
   args: { email: v.string(), password: v.string() },
   handler: async (ctx, args) => {
+    const config = await loadConfig(ctx);
     const user = await ctx.runQuery(internal.users.getByEmail, {
       email: args.email,
     });
@@ -75,7 +78,7 @@ export const loginWithPassword = action({
       throw new Error("Invalid credentials");
     }
 
-    const convexToken = await signConvexJwt(user._id);
+    const convexToken = await signConvexJwt(config, user._id);
     return { convexToken };
   },
 });

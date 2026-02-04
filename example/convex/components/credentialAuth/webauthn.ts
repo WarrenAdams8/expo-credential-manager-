@@ -11,23 +11,20 @@ import {
 } from "@simplewebauthn/server";
 import { SignJWT, importPKCS8 } from "jose";
 
-const rpID = process.env.RP_ID!;
-const rpName = "Your App";
-const origin = process.env.ORIGIN!;
-const issuer = process.env.CONVEX_ISSUER!;
-const audience = process.env.CONVEX_AUDIENCE!;
-const privateKeyPem = process.env.JWT_PRIVATE_KEY_PEM!;
-const keyId = process.env.JWT_KID!;
+async function loadConfig(ctx: { runQuery: any }) {
+  return await ctx.runQuery(internal.config.getConfig, {});
+}
 
-async function signConvexJwt(sub: string) {
-  const key = await importPKCS8(privateKeyPem, "RS256");
+async function signConvexJwt(config: any, sub: string) {
+  const key = await importPKCS8(config.jwtPrivateKeyPem, "RS256");
   const now = Math.floor(Date.now() / 1000);
+  const ttl = config.tokenTtlSeconds ?? 60 * 60;
   return await new SignJWT({})
-    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: keyId })
+    .setProtectedHeader({ alg: "RS256", typ: "JWT", kid: config.jwtKid })
     .setIssuedAt(now)
-    .setExpirationTime(now + 60 * 60)
-    .setIssuer(issuer)
-    .setAudience(audience)
+    .setExpirationTime(now + ttl)
+    .setIssuer(config.issuer)
+    .setAudience(config.audience)
     .setSubject(sub)
     .sign(key);
 }
@@ -35,13 +32,14 @@ async function signConvexJwt(sub: string) {
 export const beginRegistration = action({
   args: { email: v.string() },
   handler: async (ctx, args) => {
+    const config = await loadConfig(ctx);
     const userId = await ctx.runMutation(internal.users.upsertByEmail, {
       email: args.email,
     });
 
     const options = await generateRegistrationOptions({
-      rpID,
-      rpName,
+      rpID: config.rpID,
+      rpName: config.rpName ?? "Your App",
       userID: userId,
       userName: args.email,
       attestationType: "none",
@@ -61,6 +59,7 @@ export const beginRegistration = action({
 export const finishRegistration = action({
   args: { email: v.string(), responseJson: v.string() },
   handler: async (ctx, args) => {
+    const config = await loadConfig(ctx);
     const userId = await ctx.runMutation(internal.users.upsertByEmail, {
       email: args.email,
     });
@@ -76,8 +75,8 @@ export const finishRegistration = action({
     const verification = await verifyRegistrationResponse({
       response,
       expectedChallenge: record.challenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
+      expectedOrigin: config.origin,
+      expectedRPID: config.rpID,
     });
 
     if (!verification.verified || !verification.registrationInfo) {
@@ -92,10 +91,10 @@ export const finishRegistration = action({
       credentialId: Buffer.from(credentialID).toString("base64url"),
       publicKey: Buffer.from(credentialPublicKey).toString("base64url"),
       counter,
-      rpID,
+      rpID: config.rpID,
     });
 
-    const convexToken = await signConvexJwt(userId);
+    const convexToken = await signConvexJwt(config, userId);
     return { convexToken };
   },
 });
@@ -103,8 +102,9 @@ export const finishRegistration = action({
 export const beginAuthentication = action({
   args: {},
   handler: async (ctx) => {
+    const config = await loadConfig(ctx);
     const options = await generateAuthenticationOptions({
-      rpID,
+      rpID: config.rpID,
       userVerification: "preferred",
     });
 
@@ -122,6 +122,7 @@ export const beginAuthentication = action({
 export const finishAuthentication = action({
   args: { responseJson: v.string() },
   handler: async (ctx, args) => {
+    const config = await loadConfig(ctx);
     const response = JSON.parse(args.responseJson);
 
     const record = await ctx.runMutation(internal.passkeys.consumeChallenge, {
@@ -139,8 +140,8 @@ export const finishAuthentication = action({
     const verification = await verifyAuthenticationResponse({
       response,
       expectedChallenge: record.challenge,
-      expectedOrigin: origin,
-      expectedRPID: rpID,
+      expectedOrigin: config.origin,
+      expectedRPID: config.rpID,
       authenticator: {
         credentialID: Buffer.from(passkey.credentialId, "base64url"),
         credentialPublicKey: Buffer.from(passkey.publicKey, "base64url"),
@@ -155,7 +156,7 @@ export const finishAuthentication = action({
       counter: verification.authenticationInfo.newCounter,
     });
 
-    const convexToken = await signConvexJwt(passkey.userId);
+    const convexToken = await signConvexJwt(config, passkey.userId);
     return { convexToken };
   },
 });
