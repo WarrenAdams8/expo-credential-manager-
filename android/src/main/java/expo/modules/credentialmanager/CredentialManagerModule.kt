@@ -185,8 +185,8 @@ class CredentialManagerModule : Module() {
             mapOf(
               "type" to "google",
               "idToken" to google.idToken,
-              "id" to google.id,
-              "email" to google.id,
+              "id" to google.uniqueId,
+              "email" to google.email,
               "displayName" to google.displayName,
               "givenName" to google.givenName,
               "familyName" to google.familyName,
