@@ -1,6 +1,6 @@
 # Expo Credential Manager (Android)
 
-Expo module that exposes Android Credential Manager to JavaScript for passkeys, passwords, and Sign in with Google. Includes an Expo config plugin, an example app, and a reusable Convex auth component wired through Expo Router API routes.
+Expo module that exposes Android Credential Manager to JavaScript for passkeys, passwords, and Sign in with Google. Includes an Expo config plugin.
 
 ## Features
 - Passkey registration and sign-in using WebAuthn JSON from your backend.
@@ -8,8 +8,6 @@ Expo module that exposes Android Credential Manager to JavaScript for passkeys, 
 - Google Sign-In via Credential Manager, including explicit consent flow.
 - Mixed selector flow (passkey + password + Google) with a single UI.
 - Optional config plugin for default `serverClientId` and `hostedDomainFilter`.
-- Example app with Expo Router API routes that proxy to a Convex backend.
-- Reusable Convex component that encapsulates passkeys + Google + password auth.
 
 ## Requirements
 - Android 4.4 (API 19) and higher for password and federated sign-in.
@@ -83,7 +81,7 @@ import {
 
 const available = await isAvailable();
 
-// Passkey registration (Expo API routes)
+// Passkey registration (your API routes)
 const email = 'user@example.com';
 const registrationJson = await fetch(`/api/webauthn/registration?email=${encodeURIComponent(email)}`).then(
   (r) => r.text()
@@ -95,7 +93,7 @@ await fetch('/api/webauthn/registration/finish', {
   body: JSON.stringify({ email, responseJson: createResult.responseJson }),
 });
 
-// Passkey or password sign-in (Expo API routes)
+// Passkey or password sign-in (your API routes)
 const authJson = await fetch('/api/webauthn/authentication').then((r) => r.text());
 const credential = await getCredential({
   publicKeyRequestJson: authJson,
@@ -138,19 +136,6 @@ await fetch('/api/google/verify', {
 await clearCredentialState();
 ```
 
-## Example Expo API Route: `/api/webauthn/authentication`
-In the example app, API routes proxy to Convex HTTP actions. This keeps your client code
-on `/api/*` while the backend lives in Convex. Set `CONVEX_HTTP_URL` in `example/.env`.
-
-```ts
-// example/app/api/webauthn/authentication+api.ts
-import { proxyToConvex } from '../_convex';
-
-export async function GET(req: Request) {
-  return await proxyToConvex(req, '/api/webauthn/authentication');
-}
-```
-
 ## Google Sign-In Options
 - `filterByAuthorizedAccounts`: show only accounts that already granted consent.
 - `autoSelectEnabled`: auto-select when there is a single available credential.
@@ -174,35 +159,6 @@ and issue ID tokens for linked accounts. If you are not implementing linked acco
 Use this to limit Sign in with Google to a **Google Workspace domain**, e.g. `example.com`
 for enterprise-only sign-in. Leave it empty for consumer accounts.
 
-## Convex Component (Example)
-The example app includes a reusable Convex component under
-`example/convex/components/credentialAuth` with:
-- WebAuthn challenge generation + verification (actions).
-- Google ID token verification (action).
-- Email/password registration and login endpoints.
-- Custom JWT signing and JWKS endpoint.
-
-The app mounts the component in `example/convex/convex.config.ts` and proxies
-`/api/*` routes to Convex HTTP actions.
-
-To use the component in your own Convex app:
-1. Copy `example/convex/components/credentialAuth` into your `convex/components/`.
-2. Mount it in your `convex/convex.config.ts` with `defineApp().use(...)`.
-3. Add HTTP routes that proxy to the component actions.
-4. Run `setupAuth:configure` once to store config.
-
-To run it locally:
-1. In `example/`, run `npm run convex:dev` and follow the prompts.
-2. Set Convex envs (see list below).
-3. Run `npx convex run setupAuth:configure` once to store config in the component.
-4. Copy `example/.env.example` to `example/.env` and set `CONVEX_HTTP_URL`.
-5. Start the Expo app (`npm run android`).
-
-Required Convex env variables:
-- `RP_ID`, `ORIGIN`, `RP_NAME` (optional)
-- `CONVEX_ISSUER`, `CONVEX_AUDIENCE`
-- `JWT_PRIVATE_KEY_PEM`, `JWT_PUBLIC_JWK`, `JWT_KID`, `JWT_TTL_SECONDS` (optional)
-- `GOOGLE_SERVER_CLIENT_ID` (optional: `GOOGLE_HOSTED_DOMAIN`)
 ## Notes and Limitations
 - Do not set `origin` in request JSON for native apps. Use Digital Asset Links instead.
 - Passkey UX: keep passkeys as the primary sign-in option and passwords as a fallback.
@@ -212,14 +168,10 @@ Required Convex env variables:
 - `requestVerifiedPhoneNumber` requires `filterByAuthorizedAccounts=false`.
 - When using the config plugin, you can omit `serverClientId` and `hostedDomainFilter` in JS.
 
-## Example App
-See `example/` for a minimal Expo app using Google Sign-In, mixed credential retrieval,
-and Expo Router API routes that proxy to Convex HTTP actions under `example/app/api`.
-
 ## Dev Build (Required)
 This module includes native Android code, so it **won't work in Expo Go**. Use a dev build:
 ```bash
-# inside your app (or example/)
+# inside your app
 npx expo install expo-dev-client
 npx expo prebuild
 npx expo run:android
