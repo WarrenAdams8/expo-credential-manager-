@@ -30,6 +30,7 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import kotlinx.coroutines.runBlocking
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -76,10 +77,12 @@ class CredentialManagerModule : Module() {
       val activity = currentActivity()
       val credentialManager = CredentialManager.create(activity)
       try {
-        val response = credentialManager.createCredential(
-          activity,
-          CreatePublicKeyCredentialRequest(requestJson)
-        )
+        val response = runBlocking {
+          credentialManager.createCredential(
+            activity,
+            CreatePublicKeyCredentialRequest(requestJson)
+          )
+        }
         val publicKeyResponse = response as? CreatePublicKeyCredentialResponse
           ?: throw CredentialManagerException(
             "E_UNEXPECTED_RESPONSE",
@@ -105,10 +108,12 @@ class CredentialManagerModule : Module() {
       val activity = currentActivity()
       val credentialManager = CredentialManager.create(activity)
       try {
-        credentialManager.createCredential(
-          activity,
-          CreatePasswordRequest(username, password)
-        )
+        runBlocking {
+          credentialManager.createCredential(
+            activity,
+            CreatePasswordRequest(username, password)
+          )
+        }
         mapOf("type" to "password")
       } catch (e: CreateCredentialException) {
         throw mapCreateException(e)
@@ -142,7 +147,7 @@ class CredentialManagerModule : Module() {
       }
 
       try {
-        val response = credentialManager.getCredential(activity, builder.build())
+        val response = runBlocking { credentialManager.getCredential(activity, builder.build()) }
         mapCredentialResponse(response.credential)
       } catch (e: GetCredentialException) {
         throw mapGetException(e)
@@ -157,7 +162,7 @@ class CredentialManagerModule : Module() {
         .build()
 
       try {
-        val response = credentialManager.getCredential(activity, request)
+        val response = runBlocking { credentialManager.getCredential(activity, request) }
         val result = mapCredentialResponse(response.credential)
         if (result["type"] != "google") {
           throw CredentialManagerException(
@@ -175,7 +180,7 @@ class CredentialManagerModule : Module() {
       val activity = currentActivity()
       val credentialManager = CredentialManager.create(activity)
       try {
-        credentialManager.clearCredentialState(ClearCredentialStateRequest())
+        runBlocking { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
         null
       } catch (e: ClearCredentialException) {
         throw CredentialManagerException(
@@ -214,7 +219,7 @@ class CredentialManagerModule : Module() {
               "type" to "google",
               "idToken" to google.idToken,
               "userId" to google.id,
-              "email" to google.email,
+              "email" to google.id,
               "displayName" to google.displayName,
               "givenName" to google.givenName,
               "familyName" to google.familyName,
@@ -353,7 +358,7 @@ class CredentialManagerModule : Module() {
 }
 
 class CredentialManagerException(
-  override val code: String,
+  code: String,
   message: String,
   cause: Throwable? = null
-) : CodedException(message, cause)
+) : CodedException(code, message, cause)

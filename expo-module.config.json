@@ -2,6 +2,7 @@
   "name": "CredentialManager",
   "platforms": ["android", "ios"],
   "android": {
-    "package": "expo.modules.credentialmanager"
+    "package": "expo.modules.credentialmanager",
+    "modules": ["expo.modules.credentialmanager.CredentialManagerModule"]
   }
 }
