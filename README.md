@@ -26,10 +26,14 @@ Expo module that exposes Android Credential Manager to JavaScript for passkeys, 
 > **Note:** `isAvailable()` returns `true` on all supported Android devices. Feature-specific errors are thrown at runtime if the device doesn't support a particular credential type.
 
 ## Install
+Using npm:
+```bash
+npm install expo-credential-manager
+```
+
+Using Expo:
 ```bash
 npx expo install expo-credential-manager
-# or
-npm install expo-credential-manager
 ```
 
 After installation, rebuild your development client:
