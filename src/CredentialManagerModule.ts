@@ -37,6 +37,17 @@ function hasAtLeastOneOption(options: GetCredentialOptions): boolean {
   return hasPublicKey || hasPassword || hasGoogle;
 }
 
+function normalizeGetCredentialOptions(options: GetCredentialOptions): GetCredentialOptions {
+  if (
+    typeof options.publicKeyRequestJson === 'string' &&
+    options.publicKeyRequestJson.trim() === ''
+  ) {
+    const { publicKeyRequestJson: _ignored, ...rest } = options;
+    return rest as GetCredentialOptions;
+  }
+  return options;
+}
+
 export async function isAvailable(): Promise<boolean> {
   if (Platform.OS !== 'android' || !NativeModule) {
     return false;
@@ -74,13 +85,14 @@ export async function createPassword(username: string, password: string): Promis
 
 export async function getCredential(options: GetCredentialOptions): Promise<GetCredentialResult> {
   const native = ensureAvailable();
-  if (!hasAtLeastOneOption(options)) {
+  const normalizedOptions = normalizeGetCredentialOptions(options);
+  if (!hasAtLeastOneOption(normalizedOptions)) {
     throw new CodedError(
       CredentialManagerErrorCodes.E_INVALID_OPTIONS,
       'At least one of publicKeyRequestJson, password, or googleId must be provided.'
     );
   }
-  return await native.getCredential(options);
+  return await native.getCredential(normalizedOptions);
 }
 
 export async function signInWithGoogle(options: SignInWithGoogleOptions): Promise<GoogleCredential> {

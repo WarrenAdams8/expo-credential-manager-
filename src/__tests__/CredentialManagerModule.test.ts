@@ -186,6 +186,13 @@ describe('CredentialManagerModule', () => {
         await getCredential({ googleId: { serverClientId: 'client-id' } });
         expect(mockNativeModule.getCredential).toHaveBeenCalledWith({ googleId: { serverClientId: 'client-id' } });
       });
+
+      it('omits blank publicKeyRequestJson when other options are present', async () => {
+        mockNativeModule.getCredential.mockResolvedValue({ type: 'password', id: 'user', password: 'pass' });
+        const { getCredential } = await import('../CredentialManagerModule');
+        await getCredential({ publicKeyRequestJson: '   ', password: true } as any);
+        expect(mockNativeModule.getCredential).toHaveBeenCalledWith({ password: true });
+      });
     });
 
     describe('signInWithGoogle', () => {

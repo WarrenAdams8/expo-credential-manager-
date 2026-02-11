@@ -13,6 +13,7 @@
  * @param {string} [props.hostedDomainFilter] - Google Workspace domain filter (enterprise only)
  */
 const { AndroidConfig, withStringsXml, createRunOncePlugin } = require('expo/config-plugins');
+const pkg = require('./package.json');
 
 const SERVER_CLIENT_ID = 'expo_credential_manager_server_client_id';
 const HOSTED_DOMAIN_FILTER = 'expo_credential_manager_hosted_domain_filter';
@@ -70,4 +71,4 @@ const withCredentialManager = (config, props = {}) => {
   });
 };
 
-module.exports = createRunOncePlugin(withCredentialManager, 'expo-credential-manager', '0.1.0');
+module.exports = createRunOncePlugin(withCredentialManager, 'expo-credential-manager', pkg.version);

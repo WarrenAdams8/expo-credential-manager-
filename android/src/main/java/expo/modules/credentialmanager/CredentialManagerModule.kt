@@ -30,7 +30,6 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
-import kotlinx.coroutines.runBlocking
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -73,16 +72,17 @@ class CredentialManagerModule : Module() {
       }
     }
 
-    AsyncFunction("createPasskey") { requestJson: String ->
+    AsyncFunction("createPasskey") Coroutine { requestJson: String ->
+      if (requestJson.isBlank()) {
+        throw CredentialManagerException("E_INVALID_INPUT", "requestJson cannot be blank.")
+      }
       val activity = currentActivity()
       val credentialManager = CredentialManager.create(activity)
       try {
-        val response = runBlocking {
-          credentialManager.createCredential(
-            activity,
-            CreatePublicKeyCredentialRequest(requestJson)
-          )
-        }
+        val response = credentialManager.createCredential(
+          activity,
+          CreatePublicKeyCredentialRequest(requestJson)
+        )
         val publicKeyResponse = response as? CreatePublicKeyCredentialResponse
           ?: throw CredentialManagerException(
             "E_UNEXPECTED_RESPONSE",
@@ -93,12 +93,18 @@ class CredentialManagerModule : Module() {
           "type" to "publicKey",
           "responseJson" to publicKeyResponse.registrationResponseJson
         )
+      } catch (e: IllegalArgumentException) {
+        throw CredentialManagerException(
+          "E_INVALID_INPUT",
+          e.message ?: "requestJson is invalid.",
+          e
+        )
       } catch (e: CreateCredentialException) {
         throw mapCreateException(e)
       }
     }
 
-    AsyncFunction("createPassword") { username: String, password: String ->
+    AsyncFunction("createPassword") Coroutine { username: String, password: String ->
       if (username.isBlank()) {
         throw CredentialManagerException("E_INVALID_INPUT", "Username cannot be blank.")
       }
@@ -108,53 +114,58 @@ class CredentialManagerModule : Module() {
       val activity = currentActivity()
       val credentialManager = CredentialManager.create(activity)
       try {
-        runBlocking {
-          credentialManager.createCredential(
-            activity,
-            CreatePasswordRequest(username, password)
-          )
-        }
+        credentialManager.createCredential(
+          activity,
+          CreatePasswordRequest(username, password)
+        )
         mapOf("type" to "password")
       } catch (e: CreateCredentialException) {
         throw mapCreateException(e)
       }
     }
 
-    AsyncFunction("getCredential") { options: GetCredentialOptionsRecord ->
+    AsyncFunction("getCredential") Coroutine { options: GetCredentialOptionsRecord ->
       val activity = currentActivity()
       val credentialManager = CredentialManager.create(activity)
 
       val publicKeyRequestJson = options.publicKeyRequestJson
+      val hasPublicKeyOption = !publicKeyRequestJson.isNullOrBlank()
       val includePassword = options.password
       val googleIdOptions = options.googleId
 
-      if (publicKeyRequestJson == null && !includePassword && googleIdOptions == null) {
+      if (!hasPublicKeyOption && !includePassword && googleIdOptions == null) {
         throw CredentialManagerException(
           "E_INVALID_OPTIONS",
           "Provide publicKeyRequestJson, googleId, and/or set password=true."
         )
       }
 
-      val builder = GetCredentialRequest.Builder()
-      if (publicKeyRequestJson != null) {
-        builder.addCredentialOption(GetPublicKeyCredentialOption(publicKeyRequestJson))
-      }
-      if (includePassword) {
-        builder.addCredentialOption(GetPasswordOption())
-      }
-      if (googleIdOptions != null) {
-        builder.addCredentialOption(buildGoogleIdOption(activity, googleIdOptions))
-      }
-
       try {
-        val response = runBlocking { credentialManager.getCredential(activity, builder.build()) }
+        val builder = GetCredentialRequest.Builder()
+        if (hasPublicKeyOption) {
+          builder.addCredentialOption(GetPublicKeyCredentialOption(publicKeyRequestJson!!))
+        }
+        if (includePassword) {
+          builder.addCredentialOption(GetPasswordOption())
+        }
+        if (googleIdOptions != null) {
+          builder.addCredentialOption(buildGoogleIdOption(activity, googleIdOptions))
+        }
+
+        val response = credentialManager.getCredential(activity, builder.build())
         mapCredentialResponse(response.credential)
+      } catch (e: IllegalArgumentException) {
+        throw CredentialManagerException(
+          "E_INVALID_INPUT",
+          e.message ?: "Invalid getCredential options.",
+          e
+        )
       } catch (e: GetCredentialException) {
         throw mapGetException(e)
       }
     }
 
-    AsyncFunction("signInWithGoogle") { options: SignInWithGoogleOptionsRecord ->
+    AsyncFunction("signInWithGoogle") Coroutine { options: SignInWithGoogleOptionsRecord ->
       val activity = currentActivity()
       val credentialManager = CredentialManager.create(activity)
       val request = GetCredentialRequest.Builder()
@@ -162,7 +173,7 @@ class CredentialManagerModule : Module() {
         .build()
 
       try {
-        val response = runBlocking { credentialManager.getCredential(activity, request) }
+        val response = credentialManager.getCredential(activity, request)
         val result = mapCredentialResponse(response.credential)
         if (result["type"] != "google") {
           throw CredentialManagerException(
@@ -176,11 +187,11 @@ class CredentialManagerModule : Module() {
       }
     }
 
-    AsyncFunction("clearCredentialState") {
+    AsyncFunction("clearCredentialState") Coroutine {
       val activity = currentActivity()
       val credentialManager = CredentialManager.create(activity)
       try {
-        runBlocking { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
+        credentialManager.clearCredentialState(ClearCredentialStateRequest())
         null
       } catch (e: ClearCredentialException) {
         throw CredentialManagerException(
@@ -219,7 +230,7 @@ class CredentialManagerModule : Module() {
               "type" to "google",
               "idToken" to google.idToken,
               "userId" to google.id,
-              "email" to google.id,
+              "email" to google.email,
               "displayName" to google.displayName,
               "givenName" to google.givenName,
               "familyName" to google.familyName,
